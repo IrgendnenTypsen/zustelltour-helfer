@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0F1626">
+<title>vorsechs · Helfer</title>
+<link rel="icon" href="data:image/svg+xml,<svg class='logo' viewBox='0 0 100 100' width='64' height='64' aria-hidden='true'><rect width='100' height='100' rx='22' fill='%230F1626'/><g transform='translate(14 11.5) scale(.72)'><path d='M68 15 C49 22 31 38 30 62 A20 20 0 1 0 70 62 A20 20 0 1 0 30 62' fill='none' stroke='%23F2F2EF' stroke-width='12' stroke-linecap='round'/><circle cx='68' cy='15' r='10' fill='%23FFB22E'/></g></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700..800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+/* Layout: eine Spalte fürs Handy – Kopf, nächster Stopp, Karte, Liste. */
+/* vorsechs: Nacht #0F1626 · Erstes Licht #FFB22E · Papier #F2F2EF · Im Kasten #2FBF71 */
+:root {
+  --bg: #f2f2ef; --surface: #ffffff; --surface-2: #e9e9e4; --ink: #0f1626; --ink-2: #4a5263; --line: #d5d8de;
+  --accent: #ffb22e; --accent-ink: #0f1626; --accent-text: #9a6000; --ok: #1f9d5a; --ok-ink: #ffffff; --next: #ffb22e; --done: #9aa3b5; --route: #1d4ed8;
+  --note-bg: #fff1d2; --note-ink: #4d3500; --chip-bg: #e3e4e0; --start: #1f9d5a; --end: #0f1626;
+  --font: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-num: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1626; --surface: #172036; --surface-2: #1e2942; --ink: #f2f2ef; --ink-2: #9aa3b5; --line: #2a3654;
+    --accent: #ffb22e; --accent-ink: #0f1626; --accent-text: #ffb22e; --ok: #2fbf71; --ok-ink: #06210c; --next: #ffb22e; --done: #5d6680; --route: #6d9bff;
+    --note-bg: #3a2c0c; --note-ink: #ffe0a0; --chip-bg: #26324d; --start: #2fbf71; --end: #c8ced8; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1626; --surface: #172036; --surface-2: #1e2942; --ink: #f2f2ef; --ink-2: #9aa3b5; --line: #2a3654;
+  --accent: #ffb22e; --accent-ink: #0f1626; --accent-text: #ffb22e; --ok: #2fbf71; --ok-ink: #06210c; --next: #ffb22e; --done: #5d6680; --route: #6d9bff;
+  --note-bg: #3a2c0c; --note-ink: #ffe0a0; --chip-bg: #26324d; --start: #2fbf71; --end: #c8ced8; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.4 var(--font); }
+.wrap { max-width: 640px; margin: 0 auto; padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; }
+h1 { font: 800 22px/1.1 var(--font-num); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.wordmark { font: 800 30px/1 var(--font-num); letter-spacing: -0.03em; }
+.wordmark span { color: var(--ink-2); font-weight: 700; }
+.byline { display: inline-block; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 13px; padding: 4px 12px; border-radius: 999px; }
+.logo { border-radius: 22%; flex: none; box-shadow: 0 0 0 1px var(--line); }
+[hidden] { display: none !important; }
+.brandfoot { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--ink-2); font-size: 12px; padding-top: 6px; }
+.muted { color: var(--ink-2); }
+.small { font-size: 13px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: grid; gap: 10px; min-width: 0; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.grow { flex: 1; min-width: 0; }
+.eyebrow { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { display: inline-flex; gap: 4px; align-items: center; border-radius: 7px; padding: 2px 8px; font-weight: 700; font-size: 13px; background: var(--chip-bg); color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.chip.sp { color: #fff; }
+.chip.lg { font-size: 18px; padding: 6px 12px; border-radius: 9px; }
+.chip .d { font-size: 11px; font-weight: 600; border-left: 1px solid currentColor; padding-left: 5px; opacity: .9; }
+.note { background: var(--note-bg); color: var(--note-ink); border-radius: 8px; padding: 6px 9px; font-weight: 600; font-size: 14px; }
+.flag { display: inline-block; font: 800 10px/1 var(--font); text-transform: uppercase; letter-spacing: .05em; padding: 3px 5px; border-radius: 5px; color: #fff; vertical-align: 1px; }
+.flag.s { background: var(--start); } .flag.e { background: var(--end); color: var(--bg); }
+.stat { display: flex; gap: 18px; flex-wrap: wrap; }
+.stat b { display: block; font: 700 26px/1.1 var(--font-num); font-variant-numeric: tabular-nums; }
+.stat span { font-size: 11px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .05em; }
+.eta { display: flex; gap: 10px; flex-wrap: wrap; }
+.eta div { flex: 1 1 140px; background: var(--surface-2); border-radius: 10px; padding: 8px 12px; }
+.eta b { display: block; font: 700 20px/1.2 var(--font-num); font-variant-numeric: tabular-nums; }
+.eta span { font-size: 12px; color: var(--ink-2); }
+.bar { height: 8px; border-radius: 4px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--ok); }
+.cur { border: 2px solid var(--accent); }
+.where { font: 800 30px/1.1 var(--font-num); }
+.btn { border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 11px; height: 46px; padding: 0 14px; font: 600 15px var(--font); display: inline-flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; cursor: pointer; }
+.btn.ok { background: var(--ok); color: var(--ok-ink); border-color: transparent; height: 62px; font-size: 20px; border-radius: 14px; }
+.btn.block { width: 100%; }
+.btn:focus-visible, .item:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+#map { width: 100%; height: 62vh; min-height: 320px; max-height: 620px; border-radius: 10px; background: var(--surface-2); z-index: 0; }
+.leaflet-container { font: inherit; }
+.pin { width: 28px; height: 28px; border-radius: 50%; background: var(--surface); color: var(--ink); border: 2.5px solid var(--ink); display: grid; place-items: center; font: 700 12px var(--font-num); box-shadow: 0 1px 4px rgba(0,0,0,.35); transition: transform .15s; }
+.pin.done { background: var(--ok); border-color: var(--ok); color: var(--ok-ink); }
+.pin.cur { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); transform: scale(1.3); }
+.z-low .pin:not(.cur) { transform: scale(.7); }
+.z-far .pin:not(.cur) { transform: scale(.42); font-size: 0; }
+.mflag { position: absolute; transform: translate(-50%, -100%); margin-top: -8px; white-space: nowrap; font: 800 11px/1 var(--font); text-transform: uppercase; letter-spacing: .04em; padding: 5px 8px; border-radius: 7px; color: #fff; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+.mflag.s { background: #2f9e44; } .mflag.e { background: #1b1d22; }
+.me { width: 18px; height: 18px; border-radius: 50%; background: #1c7ed6; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(28,126,214,.25); }
+:root[data-theme="dark"] .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.85) contrast(.9); } }
+@media (prefers-reduced-motion: reduce) { .pin { transition: none; } }
+.list { display: grid; gap: 6px; }
+.street { font-weight: 700; font-size: 13px; padding: 8px 2px 0; color: var(--ink-2); }
+.item { display: grid; grid-template-columns: 30px 52px 1fr 34px; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 11px; padding: 8px 10px; width: 100%; text-align: left; color: var(--ink); font: inherit; cursor: pointer; }
+.item .nr { font: 600 12px var(--font-num); color: var(--ink-2); text-align: center; }
+.item .hn { font: 800 22px/1 var(--font-num); text-align: center; }
+.item .names { font-size: 12.5px; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item .box { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); display: grid; place-items: center; font-weight: 800; }
+.item.done { opacity: .5; }
+.item.done .box { background: var(--ok); border-color: var(--ok); color: var(--ok-ink); }
+.item.now { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.empty { text-align: center; padding: 50px 10px; display: grid; gap: 10px; justify-items: center; }
+.empty h1 { font-size: 22px; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); transform: translateX(-50%); background: var(--ink); color: var(--bg); border-radius: 10px; padding: 10px 14px; font-weight: 600; display: flex; gap: 14px; align-items: center; max-width: calc(100% - 32px); }
+.toast button { background: none; border: 0; color: #ffb22e; font-weight: 800; text-transform: uppercase; font-size: 13px; cursor: pointer; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 18px; height: 4px; border-radius: 2px; vertical-align: middle; margin-right: 4px; }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <div id="top"></div>
+  <div class="card" id="mapcard" hidden>
+    <div class="row"><div class="eyebrow grow">Karte</div>
+      <button class="btn" data-m="next" type="button" style="height:36px">Nächste</button>
+      <button class="btn" data-m="fit" type="button" style="height:36px">Ganze Tour</button>
+      <button class="btn" data-m="me" type="button" style="height:36px" aria-label="Mein Standort">◎</button></div>
+    <div id="map"></div>
+    <div class="legend"><span><i style="background:var(--route)"></i>dein Weg</span><span><i style="background:var(--next)"></i>als Nächstes</span><span>Nummer antippen zeigt die Adresse</span></div>
+  </div>
+  <div id="bottom"></div>
+  <div class="brandfoot" id="brandfoot" hidden><svg class="logo" viewBox="0 0 100 100" width="22" height="22" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#0F1626"/><g transform="translate(14 11.5) scale(.72)"><path d="M68 15 C49 22 31 38 30 62 A20 20 0 1 0 70 62 A20 20 0 1 0 30 62" fill="none" stroke="#F2F2EF" stroke-width="12" stroke-linecap="round"/><circle cx="68" cy="15" r="10" fill="#FFB22E"/></g></svg><span><b>vorsechs</b> · Fertig vor sechs. · von einem Zusteller für Zusteller</span></div>
+  <div class="empty" id="empty">
+    <svg class="logo" viewBox="0 0 100 100" width="64" height="64" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#0F1626"/><g transform="translate(14 11.5) scale(.72)"><path d="M68 15 C49 22 31 38 30 62 A20 20 0 1 0 70 62 A20 20 0 1 0 30 62" fill="none" stroke="#F2F2EF" stroke-width="12" stroke-linecap="round"/><circle cx="68" cy="15" r="10" fill="#FFB22E"/></g></svg>
+    <h1 class="wordmark">vorsechs <span>Helfer</span></h1>
+    <div class="byline">Von einem Zusteller für Zusteller</div>
+    <p class="muted" style="max-width:36ch;margin:0">Diese Seite zeigt deinen Teil einer Zeitungstour. Öffne einfach den Link, den du bekommen hast. Falls nichts erscheint: kompletten Link kopieren und hier einfügen.</p>
+    <label for="paste" class="muted small" style="justify-self:stretch;text-align:left">Link</label>
+    <textarea id="paste" rows="4" placeholder="https://…#…" style="width:100%;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);padding:10px;font:13px/1.35 var(--font)"></textarea>
+    <button class="btn" id="open" type="button" style="justify-self:stretch;background:var(--accent);color:var(--accent-ink);border-color:transparent">Tour öffnen</button>
+    <div id="perr" class="small" style="color:#e03131" hidden></div>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+(() => {
+  const DOWL = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ohne Speicher weiter */ } },
+  };
+
+  async function unpack(tok) {
+    const b64 = tok.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((tok.length + 3) % 4);
+    const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const txt = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    return JSON.parse(txt);
+  }
+  function decodePolyline(s) {
+    const out = []; let i = 0, lat = 0, lng = 0;
+    while (i < s.length) {
+      for (const k of [0, 1]) {
+        let r = 0, sh = 0, b;
+        do { b = s.charCodeAt(i++) - 63; r |= (b & 0x1f) << sh; sh += 5; } while (b >= 0x20);
+        const d = r & 1 ? ~(r >> 1) : r >> 1;
+        if (k === 0) lat += d; else lng += d;
+      }
+      out.push([lat / 1e5, lng / 1e5]);
+    }
+    return out;
+  }
+  const tokenFrom = (txt) => {
+    const t = String(txt || '').trim();
+    const h = t.includes('#') ? t.slice(t.lastIndexOf('#') + 1) : t;
+    const clean = h.replace(/\s+/g, '');
+    return /^[A-Za-z0-9_-]{40,}$/.test(clean) ? clean : '';
+  };
+
+  let D = null, done = {}, key = '';
+  const curIndex = () => D.st.findIndex((_, i) => !done[i]);
+
+  // ---------- Zeitschätzung ----------
+  // D.t = Sekunden je Abschnitt (Start→1, 1→2, … letzte→Ziel), D.sv = Sekunden pro Briefkasten.
+  // Fehlt D.t (ältere Links), wird über die Luftlinie geschätzt.
+  const SPEED = { foot: 1.25, bike: 3.6, car: 7 };
+  const dist = (a, b) => {
+    const R = 6371000, r = Math.PI / 180, dLa = (b[0] - a[0]) * r, dLo = (b[1] - a[1]) * r;
+    const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLo / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(h));
+  };
+  function legSeconds() {
+    if (Array.isArray(D.t) && D.t.length === D.st.length + 1) return D.t;
+    const pts = [[D.s[1], D.s[2]], ...D.st.map((s) => [s[2], s[3]]), [D.e[1], D.e[2]]];
+    const v = SPEED[D.pf] || SPEED.foot;
+    return pts.slice(1).map((p, i) => Math.round((dist(pts[i], p) * 1.35) / v));
+  }
+  /** Restzeit in Sekunden ab der nächsten offenen Adresse bis zum Ziel */
+  function remaining() {
+    const legs = legSeconds(), sv = D.sv ?? 25;
+    let t = 0;
+    D.st.forEach((_, i) => { if (!done[i]) t += legs[i] + sv; });
+    return t + legs[legs.length - 1];
+  }
+  const fmtMin = (sec) => { const m = Math.max(1, Math.round(sec / 60)); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min` : `${m} min`; };
+  const clock = (sec) => { const d = new Date(Date.now() + sec * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+
+  async function start(given) {
+    let tok = given || tokenFrom(location.hash);
+    if (!tok) tok = store.get('zt-helfer-last') || '';
+    if (!tok) return;
+    try { D = await unpack(tok); } catch {
+      D = null;
+      const err = $('#perr');
+      err.hidden = false; err.textContent = 'Der Link ist unvollständig oder beschädigt. Bitte lass ihn dir noch einmal schicken und kopiere ihn komplett.';
+      return;
+    }
+    store.set('zt-helfer-last', tok);
+    let h = 0; for (let i = 0; i < tok.length; i++) h = (h * 31 + tok.charCodeAt(i)) | 0;
+    key = `zt-helfer-${h}`;
+    done = store.get(key) || {};
+    $('#empty').hidden = true; $('#brandfoot').hidden = false;
+    $('#mapcard').hidden = false;
+    render();
+    initMap();
+  }
+
+  // ---------- Anzeige ----------
+  const chip = (code, qty, lg) => {
+    const col = D.c && D.c[code];
+    return `<span class="chip${col ? ' sp' : ''}${lg ? ' lg' : ''}"${col ? ` style="background:${esc(col)}"` : ''}>${qty}× ${esc(code)}</span>`;
+  };
+  const chipsOf = (items, lg) => {
+    const agg = new Map();
+    items.forEach(([code, qty]) => agg.set(code, (agg.get(code) || 0) + qty));
+    return [...agg].sort((a, b) => (a[0] === D.std ? -1 : b[0] === D.std ? 1 : a[0].localeCompare(b[0]))).map(([c, q]) => chip(c, q, lg)).join('');
+  };
+  const navUrl = (lat, lng) => `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=walking`;
+
+  function render() {
+    const st = D.st;
+    const date = new Date(`${D.d}T12:00:00`);
+    const ci = curIndex();
+    const nDone = st.filter((_, i) => done[i]).length;
+    const total = st.reduce((a, s) => a + s[4].reduce((b, it) => b + it[1], 0), 0);
+    const allPer = {}, restPer = {};
+    st.forEach((s, i) => s[4].forEach(([c, q]) => { allPer[c] = (allPer[c] || 0) + q; if (!done[i]) restPer[c] = (restPer[c] || 0) + q; }));
+    const rest = Object.values(restPer).reduce((a, b) => a + b, 0);
+    const perChips = (o) => Object.entries(o).sort((a, b) => (a[0] === D.std ? -1 : b[0] === D.std ? 1 : b[1] - a[1])).map(([c, q]) => chip(c, q)).join('');
+
+    let top = `<div style="display:grid;gap:10px">
+      <div><div class="eyebrow">${esc(DOWL[date.getDay()])}, ${date.getDate()}.${date.getMonth() + 1}. · Teil ${'ABCD'[D.p]} von ${D.of}</div><h1>${esc(D.n)}</h1></div>
+      <div class="small"><span class="flag s">Start</span> ${esc(D.s[0])} &nbsp;→&nbsp; <span class="flag e">Ziel</span> ${esc(D.e[0])}</div>
+      <div class="card">
+        <div class="stat"><div><b>${st.length}</b><span>Adressen</span></div><div><b>${total}</b><span>Exemplare</span></div><div><b>${nDone}</b><span>erledigt</span></div></div>
+        ${ci >= 0 ? `<div class="eta"><div><b>ca. ${fmtMin(remaining())}</b><span>${nDone ? 'noch zu laufen' : 'geschätzte Dauer'}</span></div><div><b>${clock(remaining())} Uhr</b><span>fertig am Ziel</span></div></div>` : ''}
+        <div class="bar"><i style="width:${(nDone / st.length) * 100}%"></i></div>
+        <div class="eyebrow">Mitnehmen</div><div class="chips">${perChips(allPer)}</div>
+        ${nDone ? `<div class="small muted">Noch ${rest} Exemplare zu verteilen</div>` : ''}
+      </div>`;
+    if (ci >= 0) {
+      const s = st[ci];
+      const names = [...new Set(s[4].map((it) => it[2]).filter(Boolean))];
+      const notes = [...new Set([...s[4].map((it) => it[3]), s[5]].filter(Boolean))];
+      top += `<div class="card cur">
+        <div class="row"><div class="eyebrow grow">Nächste Adresse · ${ci + 1} von ${st.length}</div><span class="small muted">ca. ${fmtMin(legSeconds()[ci])} hin</span></div>
+        <div class="where">${esc(s[0])} ${esc(s[1])}</div>
+        <div class="chips">${chipsOf(s[4], true)}</div>
+        ${names.length ? `<div>${esc(names.join(' · '))}</div>` : ''}
+        ${notes.map((n) => `<div class="note">${esc(n)}</div>`).join('')}
+        <button class="btn ok block" data-act="done" type="button">Erledigt</button>
+        <a class="btn block" href="${navUrl(s[2], s[3])}" target="_blank" rel="noopener">Navigation (Google Maps)</a>
+      </div>`;
+    } else {
+      top += `<div class="card cur"><div class="eyebrow">Alles erledigt</div><div class="where">Fertig!</div>
+        <div>Jetzt zum Treffpunkt: <b>${esc(D.e[0])}</b></div>
+        <a class="btn block" href="${navUrl(D.e[1], D.e[2])}" target="_blank" rel="noopener">Navigation zum Ziel</a></div>`;
+    }
+    top += '</div>';
+    $('#top').innerHTML = top;
+
+    let html = '<div class="list" id="list">';
+    let last = null;
+    st.forEach((s, i) => {
+      if (s[0] !== last) { html += `<div class="street">${esc(s[0])}</div>`; last = s[0]; }
+      const names = [...new Set(s[4].map((it) => it[2]).filter(Boolean))].join(', ');
+      const notes = [...new Set([...s[4].map((it) => it[3]), s[5]].filter(Boolean))];
+      html += `<button class="item${done[i] ? ' done' : ''}${i === ci ? ' now' : ''}" data-i="${i}" type="button" aria-pressed="${done[i] ? 'true' : 'false'}">
+        <span class="nr">${i + 1}</span><span class="hn">${esc(s[1])}</span>
+        <span style="display:grid;gap:3px;min-width:0"><span class="chips">${chipsOf(s[4])}</span>${names ? `<span class="names">${esc(names)}</span>` : ''}${notes.map((n) => `<span class="note" style="font-size:12.5px;padding:3px 7px">${esc(n)}</span>`).join('')}</span>
+        <span class="box" aria-hidden="true">${done[i] ? '✓' : ''}</span></button>`;
+    });
+    html += `</div><p class="small muted" style="margin:0">Antippen hakt eine Adresse ab oder nimmt das Häkchen wieder weg. Der Stand bleibt in diesem Browser gespeichert.</p>
+      <button class="btn" data-act="other" type="button">Anderen Link öffnen</button>`;
+    $('#bottom').innerHTML = html;
+    updateMap();
+  }
+
+  // ---------- Karte ----------
+  let map = null, markers = [], legLines = [], meMarker = null, watching = false, fitted = false;
+  function initMap() {
+    if (map || !window.L) {
+      if (!window.L) $('#map').innerHTML = '<div class="small muted" style="padding:14px">Karte konnte nicht geladen werden (keine Internetverbindung?). Die Liste unten funktioniert trotzdem.</div>';
+      return;
+    }
+    map = L.map('map', { zoomControl: true, tap: true });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap-Mitwirkende' }).addTo(map);
+    const zc = () => { const z = map.getZoom(), el = map.getContainer(); el.classList.toggle('z-low', z < 17); el.classList.toggle('z-far', z < 15); };
+    map.on('zoomend', zc);
+    // Strecke
+    const line = D.g ? decodePolyline(D.g) : null;
+    const pts = [[D.s[1], D.s[2]], ...D.st.map((s) => [s[2], s[3]]), [D.e[1], D.e[2]]];
+    const path = line && line.length > 1 ? line : pts;
+    L.polyline(path, { color: '#ffffff', weight: 8, opacity: 0.85, interactive: false }).addTo(map);
+    legLines.push(L.polyline(path, { color: '#1d4ed8', weight: 5, opacity: 0.9, dashArray: line ? null : '6 8', interactive: false }).addTo(map));
+    // Start / Ziel
+    const flag = (p, txt, cls) => L.marker([p[1], p[2]], { icon: L.divIcon({ html: `<div class="mflag ${cls}">${txt}</div>`, className: '', iconSize: [0, 0], iconAnchor: [0, 0] }), zIndexOffset: 2000 }).bindPopup(esc(p[0])).addTo(map);
+    const same = Math.abs(D.s[1] - D.e[1]) < 2e-4 && Math.abs(D.s[2] - D.e[2]) < 2e-4;
+    flag(D.s, same ? 'Start / Ziel' : 'Start', 's');
+    if (!same) flag(D.e, 'Ziel', 'e');
+    // Stopps
+    markers = D.st.map((s, i) => {
+      const m = L.marker([s[2], s[3]], { icon: pinIcon(i) });
+      m.on('click', () => {
+        document.querySelector(`.item[data-i="${i}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+      m.bindTooltip(`${i + 1}: ${esc(s[0])} ${esc(s[1])}`, { direction: 'top', offset: [0, -14] });
+      return m.addTo(map);
+    });
+    map.fitBounds(L.latLngBounds(pts), { padding: [30, 30] });
+    zc();
+    fitted = true;
+    updateMap();
+  }
+  function pinIcon(i) {
+    const ci = curIndex();
+    const cls = ['pin', done[i] ? 'done' : '', i === ci ? 'cur' : ''].join(' ');
+    return L.divIcon({ html: `<div class="${cls}">${i + 1}</div>`, className: '', iconSize: [28, 28], iconAnchor: [14, 14] });
+  }
+  let nextLine = null;
+  function updateMap() {
+    if (!map) return;
+    const ci = curIndex();
+    markers.forEach((m, i) => { m.setIcon(pinIcon(i)); m.setZIndexOffset(i === ci ? 1000 : 0); });
+    if (nextLine) { nextLine.remove(); nextLine = null; }
+    // Orange: Weg vom vorigen Punkt zur nächsten Adresse (gerade Linie als Hinweis)
+    if (ci >= 0) {
+      const from = ci === 0 ? [D.s[1], D.s[2]] : [D.st[ci - 1][2], D.st[ci - 1][3]];
+      nextLine = L.polyline([from, [D.st[ci][2], D.st[ci][3]]], { color: '#FFB22E', weight: 5, dashArray: '2 8', lineCap: 'round', interactive: false }).addTo(map);
+    }
+  }
+  function showMe() {
+    if (!navigator.geolocation) return toast('Standort wird von diesem Browser nicht unterstützt');
+    if (watching) { if (meMarker) map.setView(meMarker.getLatLng(), 18); return; }
+    watching = true;
+    navigator.geolocation.watchPosition((p) => {
+      const ll = [p.coords.latitude, p.coords.longitude];
+      if (!meMarker) {
+        meMarker = L.marker(ll, { icon: L.divIcon({ html: '<div class="me"></div>', className: '', iconSize: [18, 18], iconAnchor: [9, 9] }), interactive: false, zIndexOffset: 3000 }).addTo(map);
+        map.setView(ll, 18);
+      } else meMarker.setLatLng(ll);
+    }, () => { watching = false; toast('Standort nicht verfügbar – bitte Freigabe im Browser erlauben'); }, { enableHighAccuracy: true });
+  }
+
+  function toast(msg, undo) {
+    document.querySelectorAll('.toast').forEach((t) => t.remove());
+    const el = document.createElement('div');
+    el.className = 'toast'; el.setAttribute('role', 'status');
+    el.innerHTML = `<span>${esc(msg)}</span>${undo ? '<button type="button">Rückgängig</button>' : ''}`;
+    if (undo) el.querySelector('button').onclick = () => { el.remove(); undo(); };
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+  function setDone(i, v) {
+    if (v) done[i] = Date.now(); else delete done[i];
+    store.set(key, done);
+    render();
+  }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#open')) {
+      const tok = tokenFrom($('#paste').value);
+      const err = $('#perr');
+      if (!tok) { err.hidden = false; err.textContent = 'Das sieht nicht nach einem Tour-Link aus. Bitte den kompletten Link einfügen.'; return; }
+      start(tok);
+      return;
+    }
+    if (!D) return;
+    if (e.target.closest('[data-act=other]')) { store.set('zt-helfer-last', ''); location.hash = ''; location.reload(); return; }
+    const m = e.target.closest('[data-m]');
+    if (m && map) {
+      if (m.dataset.m === 'fit') map.fitBounds(L.latLngBounds([[D.s[1], D.s[2]], ...D.st.map((s) => [s[2], s[3]]), [D.e[1], D.e[2]]]), { padding: [30, 30] });
+      if (m.dataset.m === 'next') { const ci = curIndex(); const p = ci >= 0 ? [D.st[ci][2], D.st[ci][3]] : [D.e[1], D.e[2]]; map.setView(p, 18); }
+      if (m.dataset.m === 'me') showMe();
+      return;
+    }
+    if (e.target.closest('[data-act=done]')) {
+      const i = curIndex();
+      if (i >= 0) {
+        setDone(i, true);
+        try { navigator.vibrate && navigator.vibrate(25); } catch { /* egal */ }
+        toast(`${D.st[i][0]} ${D.st[i][1]} erledigt`, () => setDone(i, false));
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+    const it = e.target.closest('.item');
+    if (it) { const i = Number(it.dataset.i); setDone(i, !done[i]); }
+  });
+  setInterval(() => { if (D) render(); }, 60000);
+  window.addEventListener('hashchange', () => { const t = tokenFrom(location.hash); if (t) location.reload(); });
+  start();
+})();
+</script>
+</body>
+</html>
